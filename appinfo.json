@@ -1,0 +1,33 @@
+{
+    "appKeys": {
+        "backgroundColor": 0,
+        "batteryLine": 2,
+        "bluetoothVibes": 6,
+        "foregroundColor": 1,
+        "noLine": 4,
+        "showDate": 5,
+        "staticLine": 3
+    },
+    "capabilities": [
+        "configurable"
+    ],
+    "companyName": "briwestervelt@gmail.com",
+    "enableMultiJS": false,
+    "longName": "Rings",
+    "projectType": "native",
+    "resources": {
+        "media": []
+    },
+    "sdkVersion": "3",
+    "shortName": "Rings",
+    "targetPlatforms": [
+        "aplite",
+        "basalt",
+        "chalk"
+    ],
+    "uuid": "dbf606cc-e56b-4628-880e-48dc0d5e7189",
+    "versionLabel": "1.0",
+    "watchapp": {
+        "watchface": true
+    }
+}

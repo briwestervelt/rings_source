@@ -5,6 +5,7 @@
         "bluetoothVibes": 6,
         "foregroundColor": 1,
         "noLine": 4,
+        "randomColor": 7,
         "showDate": 5,
         "staticLine": 3
     },
@@ -13,19 +14,19 @@
     ],
     "companyName": "briwestervelt@gmail.com",
     "enableMultiJS": false,
-    "longName": "Rings",
+    "longName": "Theta",
     "projectType": "native",
     "resources": {
         "media": []
     },
     "sdkVersion": "3",
-    "shortName": "Rings",
+    "shortName": "Theta",
     "targetPlatforms": [
         "aplite",
         "basalt",
         "chalk"
     ],
-    "uuid": "dbf606cc-e56b-4628-880e-48dc0d5e7189",
+    "uuid": "9104d091-de44-49b3-a279-95c5fdc44696",
     "versionLabel": "1.0",
     "watchapp": {
         "watchface": true

@@ -7,6 +7,7 @@
 #define KEY_NO_LINE 4
 #define KEY_SHOW_DATE 5
 #define KEY_BLUETOOTH_VIBES 6
+#define KEY_RANDOM_COLOR 7
 
 #define gap_width          1  //pixels
 #define line_one_offset    25 //pixels (for day of week)
@@ -16,19 +17,36 @@ static Window *main_window;
 static Layer *ring_layer, *battery_layer;
 static TextLayer *date_line_one_layer, *date_line_two_layer;
 
-static GColor background_color, foreground_color;
+static GColor background_color, foreground_color, bg_color_settings, fg_color_settings;
 static int battery_level;
 static bool battery_line_bool, static_line_bool, no_line_bool;
 static bool show_date_bool;
 static bool bluetooth_vibes_bool;
-/*
+static bool random_color_bool;
+
 static GColor random_color(void){
   //GColors take the form 0b11xxxxxx
   //I kind of stole this from a post by /u/chaos750 on /r/pebbledevelopers
   //thanks man!
    return (GColor8) { .argb = ((rand() % 0b00111111) + 0b11000000) };
 }
-*/
+
+static void set_colors(void){
+  background_color = (random_color_bool) ? random_color() : bg_color_settings;
+  foreground_color = (random_color_bool) ? gcolor_legible_over(background_color) : fg_color_settings;
+}
+
+static void update_colors(void){
+  set_colors();
+
+  //foreground
+  layer_mark_dirty(battery_layer);
+  text_layer_set_text_color(date_line_one_layer, foreground_color);
+  text_layer_set_text_color(date_line_two_layer, foreground_color);
+  
+  //background
+  window_set_background_color(main_window, background_color);
+}
 
 static void battery_callback(BatteryChargeState state){
   battery_level = state.charge_percent;
@@ -52,12 +70,14 @@ static void ring_update_proc(Layer *layer, GContext *ctx){
   int hour = t->tm_hour;
   
   //corrects for 12 hour format
-  if(hour >= 12){
-    hour -= 12;}
+  if(hour >= 12) hour -= 12;
   
   int minute_angle = 360 * (minute / 60.0);
   //int hour_angle = 360 * ((hour / 12.0) + (0.1 * (minute / 60.0)));
   int hour_angle = 360 * (( hour + (minute / 60.0)) / 12.0); //better algorithm
+  
+  if((random_color_bool) && (minute == 0))
+    update_colors();
   
   graphics_context_set_antialiased(ctx, true);
   graphics_context_set_fill_color(ctx, foreground_color);
@@ -109,17 +129,6 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed){
   layer_mark_dirty(ring_layer);
 }
 
-static void update_background_color(void){
-  window_set_background_color(main_window, background_color);
-}
-
-static void update_foreground_color(void){
-  layer_mark_dirty(ring_layer);
-  layer_mark_dirty(battery_layer);
-  text_layer_set_text_color(date_line_one_layer, foreground_color);
-  text_layer_set_text_color(date_line_two_layer, foreground_color);
-}
-
 static void inbox_received_handler(DictionaryIterator *iter, void *context){
   Tuple *background_color_t = dict_find(iter, KEY_BACKGROUND_COLOR);
   Tuple *foreground_color_t = dict_find(iter, KEY_FOREGROUND_COLOR);
@@ -128,18 +137,21 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context){
   Tuple *no_line_t = dict_find(iter, KEY_NO_LINE);
   Tuple *show_date_t = dict_find(iter, KEY_SHOW_DATE);
   Tuple *bluetooth_vibes_t = dict_find(iter, KEY_BLUETOOTH_VIBES);
+  Tuple *random_color_t = dict_find(iter, KEY_RANDOM_COLOR);
   
   if(background_color_t){
     int background_color_HEX = background_color_t->value->int32;
     persist_write_int(KEY_BACKGROUND_COLOR, background_color_HEX);
-    background_color = GColorFromHEX(background_color_HEX);
-    update_background_color();
+    bg_color_settings = GColorFromHEX(background_color_HEX);
+    update_colors();
+    layer_mark_dirty(ring_layer);
   }
   if(foreground_color_t){
     int foreground_color_HEX = foreground_color_t->value->int32;
     persist_write_int(KEY_FOREGROUND_COLOR, foreground_color_HEX);
-    foreground_color = GColorFromHEX(foreground_color_HEX);
-    update_foreground_color();
+    fg_color_settings = GColorFromHEX(foreground_color_HEX);
+    update_colors();
+    layer_mark_dirty(ring_layer);
   }
   if(battery_line_t){
     battery_line_bool = battery_line_t->value->int8;
@@ -164,23 +176,30 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context){
   if(bluetooth_vibes_t){
     bluetooth_vibes_bool = bluetooth_vibes_t->value->int8;
     persist_write_int(KEY_BLUETOOTH_VIBES, bluetooth_vibes_bool);
+    persist_write_int(KEY_BLUETOOTH_VIBES, bluetooth_vibes_bool);
+  }
+  if(random_color_t){
+    random_color_bool = random_color_t->value->int8;
+    persist_write_int(KEY_RANDOM_COLOR, random_color_bool);
+    update_colors();
+    layer_mark_dirty(ring_layer);
   }
 }
 
 static void window_load(Window *window){
   if(persist_exists(KEY_BACKGROUND_COLOR)){
     int background_color_HEX = persist_read_int(KEY_BACKGROUND_COLOR);
-    background_color = GColorFromHEX(background_color_HEX);
+    bg_color_settings = GColorFromHEX(background_color_HEX);
   }
   else{
-    background_color = GColorBlue;
+    bg_color_settings = GColorBlue;
   }
   if(persist_exists(KEY_FOREGROUND_COLOR)){
     int foreground_color_HEX = persist_read_int(KEY_FOREGROUND_COLOR);
-    foreground_color = GColorFromHEX(foreground_color_HEX);
+    fg_color_settings = GColorFromHEX(foreground_color_HEX);
   }
   else{
-    foreground_color = GColorWhite;
+    fg_color_settings = GColorWhite;
   }
   
   battery_line_bool = (persist_exists(KEY_BATTERY_LINE)) ? persist_read_bool(KEY_BATTERY_LINE) : true;
@@ -188,6 +207,9 @@ static void window_load(Window *window){
   no_line_bool = (persist_exists(KEY_NO_LINE)) ? persist_read_bool(KEY_NO_LINE) : false;
   show_date_bool = (persist_exists(KEY_SHOW_DATE)) ? persist_read_bool(KEY_SHOW_DATE) : true;
   bluetooth_vibes_bool = (persist_exists(KEY_BLUETOOTH_VIBES)) ? persist_read_bool(KEY_BLUETOOTH_VIBES) : true;
+  random_color_bool = (persist_exists(KEY_RANDOM_COLOR)) ? persist_read_bool(KEY_RANDOM_COLOR) : true;
+  
+  set_colors();
   
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
@@ -236,6 +258,8 @@ static void window_unload(Window *window){
 }
 
 static void init(void){
+  srand(time(NULL));
+  
   tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
   battery_state_service_subscribe(battery_callback);
   connection_service_subscribe((ConnectionHandlers){

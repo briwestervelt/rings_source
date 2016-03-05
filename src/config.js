@@ -3,7 +3,7 @@ Pebble.addEventListener("ready", function(){
 });
 
 Pebble.addEventListener("showConfiguration", function(){
-  var url = "http://briwestervelt.github.io/rings_config";
+  var url = "http://briwestervelt.github.io/theta_config";
   
   //console.log("Opening the config page: " + url);
   
@@ -23,7 +23,8 @@ Pebble.addEventListener("webviewclosed", function(e){
         staticLine: configData.staticLine,
         noLine: configData.noLine,
         showDate: configData.showDate,
-        bluetoothVibes: configData.bluetoothVibes
+        bluetoothVibes: configData.bluetoothVibes,
+        randomColor: configData.randomColor
       },
       function(){
         //console.log('data send success');

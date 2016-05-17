@@ -1,19 +1,19 @@
 {
     "appKeys": {
-        "backgroundColor": 0,
-        "batteryLine": 2,
+        "backgroundColor": 1,
         "bluetoothVibes": 6,
-        "foregroundColor": 1,
-        "noLine": 4,
-        "randomColor": 7,
-        "showDate": 5,
-        "staticLine": 3
+        "bottomLineSetting": 4,
+        "centerLineSetting": 5,
+        "colorSetting": 0,
+        "foregroundColor": 2,
+        "topLineSetting": 3
     },
     "capabilities": [
-        "configurable"
+        "configurable",
+        "health"
     ],
     "companyName": "briwestervelt@gmail.com",
-    "enableMultiJS": false,
+    "enableMultiJS": true,
     "longName": "Theta",
     "projectType": "native",
     "resources": {

@@ -1,29 +1,143 @@
 #include <pebble.h>
 
-#define KEY_BACKGROUND_COLOR 0
-#define KEY_FOREGROUND_COLOR 1
-#define KEY_BATTERY_LINE 2
-#define KEY_STATIC_LINE 3
-#define KEY_NO_LINE 4
-#define KEY_SHOW_DATE 5
+#define KEY_COLOR_SETTING 0
+#define KEY_BACKGROUND_COLOR 1
+#define KEY_FOREGROUND_COLOR 2
+#define KEY_TOP_LINE_SETTING 3
+#define KEY_BOTTOM_LINE_SETTING 4
+#define KEY_CENTER_LINE_SETTING 5
 #define KEY_BLUETOOTH_VIBES 6
-#define KEY_RANDOM_COLOR 7
+
+#define SELECTED_COLORS 0
+#define TRUE_RANDOM 1
+#define DARK 2
+#define LIGHT 3
+#define HOT 4
+#define COLD 5
+
+#define DIGITAL 0
+#define MONTH 1
+#define DATE 2
+#define WEEKDAY 3
+#define MONTH_DATE 4
+#define DATE_MONTH 5
+#define WEEKDAY_DATE 6
+#define STEPS 7
+#define METERS 8
+#define FEET 9
+#define CALORIES 10
+
+#define BATTERY 0
+#define CONSTANT 1
+#define NONE 2
 
 #define gap_width          1  //pixels
-#define line_one_offset    25 //pixels (for day of week)
-#define line_two_offset    3  //pixels (for day of month)
+#define line_one_offset    17 //pixels (for day of week)
+#define line_two_offset    2  //pixels (for day of month)
+
+#define num_dark_colors 8
+#define num_light_colors 6
+#define num_hot_colors 6
+#define num_cold_colors 6
 
 static Window *main_window;
 static Layer *ring_layer, *battery_layer;
 static TextLayer *date_line_one_layer, *date_line_two_layer;
+static uint8_t battery_level;
 
 static GColor background_color, foreground_color, bg_color_settings, fg_color_settings;
-static int battery_level;
-static bool battery_line_bool, static_line_bool, no_line_bool;
-static bool show_date_bool;
 static bool bluetooth_vibes_bool;
-static bool random_color_bool;
+static char color_setting[16], line_one_setting[16], line_two_setting[16], center_line_setting[16];
 
+const uint8_t dark_colors[num_dark_colors] = {
+  GColorOxfordBlueARGB8,
+  GColorBlueARGB8,
+  GColorDarkGreenARGB8,
+  GColorArmyGreenARGB8,
+  GColorBulgarianRoseARGB8,
+  GColorDarkCandyAppleRedARGB8,
+  GColorRedARGB8,
+  GColorPurpleARGB8
+};
+
+const uint8_t light_colors[num_light_colors] = {
+  GColorChromeYellowARGB8,
+  GColorGreenARGB8,
+  GColorPictonBlueARGB8,
+  GColorMagentaARGB8,
+  GColorYellowARGB8,
+  GColorBabyBlueEyesARGB8
+};
+
+const uint8_t hot_colors[num_hot_colors] = {
+  GColorRedARGB8,
+  GColorYellowARGB8,
+  GColorOrangeARGB8,
+  GColorChromeYellowARGB8,
+  GColorRajahARGB8,
+  GColorFashionMagentaARGB8
+};
+
+const uint8_t cold_colors[num_cold_colors] = {
+  GColorBlueARGB8,
+  GColorDarkGreenARGB8,
+  GColorPurpleARGB8,
+  GColorIslamicGreenARGB8,
+  GColorCyanARGB8,
+  GColorScreaminGreenARGB8
+};
+
+static void set_colors(void) {
+  int random_picker;  //for picking random colors from variable length lists
+  
+    //user settings
+    if(!strcmp(color_setting, "selectedColors")){
+      background_color = bg_color_settings;
+      foreground_color = fg_color_settings;
+    }
+    
+    //true random
+    else if(!strcmp(color_setting, "trueRandom")){ 
+      background_color = (GColor8) { .argb = ((rand() % 0b00111111) + 0b11000000) };
+      foreground_color = gcolor_legible_over(background_color);
+    }
+    
+    //dark
+    else if(!strcmp(color_setting, "dark")){
+      random_picker = rand() % num_dark_colors;
+      background_color = (GColor)(dark_colors[random_picker]);
+      foreground_color = GColorWhite;
+    }
+  
+    //light
+    else if(!strcmp(color_setting, "light")){ 
+      random_picker = rand() % num_light_colors;
+      background_color = (GColor)(light_colors[random_picker]);
+      foreground_color = GColorBlack;
+    }
+    
+    //hot
+    else if(!strcmp(color_setting, "hot")){
+      random_picker = rand() % num_hot_colors;
+      background_color = (GColor)(hot_colors[random_picker]);
+      foreground_color = gcolor_legible_over(background_color);
+    }
+    
+    //cold
+    else if(!strcmp(color_setting, "cold")){
+      random_picker = rand() % num_cold_colors;
+      background_color = (GColor)(cold_colors[random_picker]);
+      foreground_color = gcolor_legible_over(background_color);
+    }
+    
+    else{
+      background_color = GColorBlack;
+      foreground_color = GColorWhite;
+    }
+  
+}
+
+/*
 static GColor random_color(void){
   //GColors take the form 0b11xxxxxx
   //I kind of stole this from a post by /u/chaos750 on /r/pebbledevelopers
@@ -35,6 +149,7 @@ static void set_colors(void){
   background_color = (random_color_bool) ? random_color() : bg_color_settings;
   foreground_color = (random_color_bool) ? gcolor_legible_over(background_color) : fg_color_settings;
 }
+*/
 
 static void update_colors(void){
   set_colors();
@@ -48,15 +163,76 @@ static void update_colors(void){
   window_set_background_color(main_window, background_color);
 }
 
-static void battery_callback(BatteryChargeState state){
-  battery_level = state.charge_percent;
-  layer_mark_dirty(battery_layer);
-}
+static void update_lines(char* setting, int layer){
+  
+  static char text_buffer_one[16];
+  static char text_buffer_two[16];
+  time_t now = time(NULL);
+  struct tm *t = localtime(&now);
+  
+  static char text_buffer[16];
+  
+    //time
+    if(!strcmp(setting, "digitalTime")){
+      strftime(text_buffer, sizeof(text_buffer), clock_is_24h_style() ? "%H:%M" : "%I:%M", t);
+    }
+  
+    //month
+    else if(!strcmp(setting, "month")){
+      strftime(text_buffer, sizeof(text_buffer), "%b", t);
+    }
+    
+    //day of month
+    else if(!strcmp(setting, "date")){
+      strftime(text_buffer, sizeof(text_buffer), "%e", t);
+    }
+  
+    //weekday
+    else if(!strcmp(setting, "weekday")){
+      strftime(text_buffer, sizeof(text_buffer), "%a", t);
+    }
+      
+    //month/date
+    else if(!strcmp(setting, "monthDay")){
+      strftime(text_buffer, sizeof(text_buffer), "%m/%e", t);
+    }
+    
+    //date/month
+    else if(!strcmp(setting, "dayMonth")){
+      strftime(text_buffer, sizeof(text_buffer), "%e/%m", t);
+    }
+   
+    //weekday, date
+    else if(!strcmp(setting, "weekdayDate")){
+      strftime(text_buffer, sizeof(text_buffer), "%a, %e" , t);
+    }
+    
+    //steps
+    else if(!strcmp(setting, "steps")){
+      snprintf(text_buffer, sizeof(text_buffer), "%d", (int)health_service_sum_today(HealthMetricStepCount));
+    }
+            
+    //meters
+    else if(!strcmp(setting, "meters")){
+      snprintf(text_buffer, sizeof(text_buffer), "%d", (int)health_service_sum_today(HealthMetricWalkedDistanceMeters));
+    }
+    
+    //feet
+    else if(!strcmp(setting, "feet")){
+      snprintf(text_buffer, sizeof(text_buffer), "%d", (int)((3.28084*(int)health_service_sum_today(HealthMetricWalkedDistanceMeters))));
+    }
+    
+    //calories
+    else if(!strcmp(setting, "calories")){
+      snprintf(text_buffer, sizeof(text_buffer), "%d", (int)health_service_sum_today(HealthMetricActiveKCalories));
+    }
+            
+    else{
+      strcpy(text_buffer, "error");
+    } 
 
-static void bluetooth_callback(bool connected){
-  if((!connected) && (bluetooth_vibes_bool)){
-    vibes_double_pulse();
-  }
+  strcpy(layer ? text_buffer_two : text_buffer_one, text_buffer);
+  text_layer_set_text(layer ? date_line_two_layer : date_line_one_layer, layer ? text_buffer_two : text_buffer_one);
 }
 
 static void ring_update_proc(Layer *layer, GContext *ctx){
@@ -76,7 +252,7 @@ static void ring_update_proc(Layer *layer, GContext *ctx){
   //int hour_angle = 360 * ((hour / 12.0) + (0.1 * (minute / 60.0)));
   int hour_angle = 360 * (( hour + (minute / 60.0)) / 12.0); //better algorithm
   
-  if((random_color_bool) && (minute == 0))
+  if((color_setting != 0) && (minute == 0))
     update_colors();
   
   graphics_context_set_antialiased(ctx, true);
@@ -89,19 +265,42 @@ static void ring_update_proc(Layer *layer, GContext *ctx){
     
 }
 
+static void battery_callback(BatteryChargeState state){
+  battery_level = state.charge_percent;
+  layer_mark_dirty(battery_layer);
+}
+
+static void bluetooth_callback(bool connected){
+  if((!connected) && (bluetooth_vibes_bool)){
+    vibes_double_pulse();
+  }
+}
+
 static void battery_update_proc(Layer *layer, GContext *ctx){
   GRect bounds = layer_get_bounds(layer);
   GPoint center = GPoint(bounds.size.w/2, bounds.size.h/2);
   int half_bar_length = 0;
+  bool draw_line;
   
-  if(!no_line_bool){
-    if(battery_line_bool){
+    if(!strcmp(center_line_setting, "battery")){ 
       half_bar_length = bounds.size.w/6 * (battery_level / 100.0);
+      draw_line = true;
     }
-    else if(static_line_bool){
-      half_bar_length = bounds.size.w/6;
+
+    else if(!strcmp(center_line_setting, "constant")){ 
+      half_bar_length = bounds.size.w/6;  
+      draw_line = true;
+    }
+    
+    else if(!strcmp(center_line_setting, "none")){
+      draw_line = false;
     }
   
+    else{
+      draw_line = false;
+    }
+  
+  if(draw_line){
     GPoint left_point =  GPoint(center.x - half_bar_length, center.y);
     GPoint right_point = GPoint(center.x + half_bar_length, center.y);
   
@@ -110,35 +309,28 @@ static void battery_update_proc(Layer *layer, GContext *ctx){
   }
 }
 
-static void update_date(void){  
-  time_t now = time(NULL);
-  struct tm *t = localtime(&now);
-  
-  static char date_line_one_buffer[8];
-  strftime(date_line_one_buffer, sizeof(date_line_one_buffer), (show_date_bool) ? "%a" : "", t);
-  
-  static char date_line_two_buffer[4];
-  strftime(date_line_two_buffer, sizeof(date_line_two_buffer), (show_date_bool) ? "%d" : "", t);
-  
-  text_layer_set_text(date_line_one_layer, date_line_one_buffer);
-  text_layer_set_text(date_line_two_layer, date_line_two_buffer);
-}
-
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed){
-  update_date();
+  update_lines(line_one_setting, 0);
+  update_lines(line_two_setting, 1);
   layer_mark_dirty(ring_layer);
 }
 
 static void inbox_received_handler(DictionaryIterator *iter, void *context){
+  Tuple *color_setting_t = dict_find(iter, KEY_COLOR_SETTING);
   Tuple *background_color_t = dict_find(iter, KEY_BACKGROUND_COLOR);
   Tuple *foreground_color_t = dict_find(iter, KEY_FOREGROUND_COLOR);
-  Tuple *battery_line_t = dict_find(iter, KEY_BATTERY_LINE);
-  Tuple *static_line_t = dict_find(iter, KEY_STATIC_LINE);
-  Tuple *no_line_t = dict_find(iter, KEY_NO_LINE);
-  Tuple *show_date_t = dict_find(iter, KEY_SHOW_DATE);
+  Tuple *top_line_t = dict_find(iter, KEY_TOP_LINE_SETTING);
+  Tuple *bottom_line_t = dict_find(iter, KEY_BOTTOM_LINE_SETTING);
+  Tuple *center_line_t = dict_find(iter, KEY_CENTER_LINE_SETTING);
   Tuple *bluetooth_vibes_t = dict_find(iter, KEY_BLUETOOTH_VIBES);
-  Tuple *random_color_t = dict_find(iter, KEY_RANDOM_COLOR);
   
+  if(color_setting_t){
+    char *buffer = color_setting_t->value->cstring;
+    persist_write_string(KEY_COLOR_SETTING, buffer);
+    strcpy(color_setting, buffer);
+    update_colors();
+    layer_mark_dirty(ring_layer);
+  }
   if(background_color_t){
     int background_color_HEX = background_color_t->value->int32;
     persist_write_int(KEY_BACKGROUND_COLOR, background_color_HEX);
@@ -153,46 +345,39 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context){
     update_colors();
     layer_mark_dirty(ring_layer);
   }
-  if(battery_line_t){
-    battery_line_bool = battery_line_t->value->int8;
-    persist_write_int(KEY_BATTERY_LINE, battery_line_bool);
-    layer_mark_dirty(battery_layer);
+  if(top_line_t){
+    char *buffer = top_line_t->value->cstring;
+    persist_write_string(KEY_TOP_LINE_SETTING, buffer);
+    strcpy(line_one_setting, buffer);
+    update_lines(line_one_setting, 0);
   }
-  if(static_line_t){
-    static_line_bool = static_line_t->value->int8;
-    persist_write_int(KEY_STATIC_LINE, static_line_bool);
-    layer_mark_dirty(battery_layer);
+  if(bottom_line_t){
+    char *buffer = bottom_line_t->value->cstring;
+    persist_write_string(KEY_BOTTOM_LINE_SETTING, buffer);
+    strcpy(line_two_setting, buffer);
+    update_lines(line_two_setting, 1);
   }
-  if(no_line_t){
-    no_line_bool = no_line_t->value->int8;
-    persist_write_int(KEY_NO_LINE, no_line_bool);
+  if(center_line_t){
+    char *buffer = center_line_t->value->cstring;
+    persist_write_string(KEY_CENTER_LINE_SETTING, buffer);
+    strcpy(center_line_setting, buffer);
     layer_mark_dirty(battery_layer);
-  }
-  if(show_date_t){
-    show_date_bool = show_date_t->value->int8;
-    persist_write_int(KEY_SHOW_DATE, show_date_bool);
-    update_date();
   }
   if(bluetooth_vibes_t){
-    bluetooth_vibes_bool = bluetooth_vibes_t->value->int8;
-    persist_write_int(KEY_BLUETOOTH_VIBES, bluetooth_vibes_bool);
-    persist_write_int(KEY_BLUETOOTH_VIBES, bluetooth_vibes_bool);
-  }
-  if(random_color_t){
-    random_color_bool = random_color_t->value->int8;
-    persist_write_int(KEY_RANDOM_COLOR, random_color_bool);
-    update_colors();
-    layer_mark_dirty(ring_layer);
+    bluetooth_vibes_bool = bluetooth_vibes_t->value->uint8;
+    persist_write_bool(KEY_BLUETOOTH_VIBES, bluetooth_vibes_bool);
   }
 }
 
 static void window_load(Window *window){
+  
   if(persist_exists(KEY_BACKGROUND_COLOR)){
     int background_color_HEX = persist_read_int(KEY_BACKGROUND_COLOR);
     bg_color_settings = GColorFromHEX(background_color_HEX);
   }
   else{
     bg_color_settings = GColorBlue;
+    
   }
   if(persist_exists(KEY_FOREGROUND_COLOR)){
     int foreground_color_HEX = persist_read_int(KEY_FOREGROUND_COLOR);
@@ -202,12 +387,27 @@ static void window_load(Window *window){
     fg_color_settings = GColorWhite;
   }
   
-  battery_line_bool = (persist_exists(KEY_BATTERY_LINE)) ? persist_read_bool(KEY_BATTERY_LINE) : true;
-  static_line_bool = (persist_exists(KEY_STATIC_LINE)) ? persist_read_bool(KEY_STATIC_LINE) : false;
-  no_line_bool = (persist_exists(KEY_NO_LINE)) ? persist_read_bool(KEY_NO_LINE) : false;
-  show_date_bool = (persist_exists(KEY_SHOW_DATE)) ? persist_read_bool(KEY_SHOW_DATE) : true;
-  bluetooth_vibes_bool = (persist_exists(KEY_BLUETOOTH_VIBES)) ? persist_read_bool(KEY_BLUETOOTH_VIBES) : true;
-  random_color_bool = (persist_exists(KEY_RANDOM_COLOR)) ? persist_read_bool(KEY_RANDOM_COLOR) : true;
+  if(persist_exists(KEY_COLOR_SETTING)) 
+    persist_read_string(KEY_COLOR_SETTING, color_setting, sizeof(color_setting));
+  else
+    strcpy(color_setting, "dark");
+  
+  if(persist_exists(KEY_TOP_LINE_SETTING)) 
+    persist_read_string(KEY_TOP_LINE_SETTING, line_one_setting, sizeof(line_one_setting));
+  else
+    strcpy(line_one_setting, "weekdayDate");
+  
+  if(persist_exists(KEY_BOTTOM_LINE_SETTING)) 
+    persist_read_string(KEY_BOTTOM_LINE_SETTING, line_two_setting, sizeof(line_two_setting));
+  else
+    strcpy(line_two_setting, "steps");
+  
+  if(persist_exists(KEY_CENTER_LINE_SETTING)) 
+    persist_read_string(KEY_CENTER_LINE_SETTING, center_line_setting, sizeof(center_line_setting));
+  else
+    strcpy(center_line_setting, "battery");
+  
+  bluetooth_vibes_bool = (persist_exists(KEY_BLUETOOTH_VIBES)) ? persist_read_bool(KEY_BLUETOOTH_VIBES) : true;//vibrate
   
   set_colors();
   
@@ -229,7 +429,7 @@ static void window_load(Window *window){
   ));
   text_layer_set_text_color(date_line_one_layer, foreground_color);
   text_layer_set_background_color(date_line_one_layer, GColorClear);
-  text_layer_set_font(date_line_one_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+  text_layer_set_font(date_line_one_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD));
   text_layer_set_text_alignment(date_line_one_layer, GTextAlignmentCenter);
   layer_add_child(window_layer, text_layer_get_layer(date_line_one_layer));
   
@@ -241,13 +441,17 @@ static void window_load(Window *window){
   ));
   text_layer_set_text_color(date_line_two_layer, foreground_color);
   text_layer_set_background_color(date_line_two_layer, GColorClear);
-  text_layer_set_font(date_line_two_layer, fonts_get_system_font(FONT_KEY_LECO_20_BOLD_NUMBERS));
+  text_layer_set_font(date_line_two_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD));
   text_layer_set_text_alignment(date_line_two_layer, GTextAlignmentCenter);
   layer_add_child(window_layer, text_layer_get_layer(date_line_two_layer));
   
   battery_layer = layer_create(bounds);
   layer_set_update_proc(battery_layer, battery_update_proc);
   layer_add_child(window_layer, battery_layer);
+  
+  time_t now = time(NULL);
+  struct tm *t = localtime(&now);
+  tick_handler(t, MINUTE_UNIT);
 }
 
 static void window_unload(Window *window){
@@ -276,7 +480,6 @@ static void init(void){
   window_stack_push(main_window, true);
   
   battery_callback(battery_state_service_peek());
-  update_date();
   
   app_message_register_inbox_received(inbox_received_handler);
   app_message_open(128, 0);

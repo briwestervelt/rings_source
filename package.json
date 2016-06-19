@@ -1,0 +1,41 @@
+{
+    "author": "briwestervelt@gmail.com",
+    "dependencies": {
+        "pebble-clay": "^1.0.0"
+    },
+    "keywords": [],
+    "name": "theta",
+    "pebble": {
+        "capabilities": [
+            "configurable",
+            "health"
+        ],
+        "displayName": "Theta",
+        "enableMultiJS": true,
+        "messageKeys": [
+            "colorSetting",
+            "backgroundColor",
+            "foregroundColor",
+            "topLineSetting",
+            "bottomLineSetting",
+            "centerLineSetting",
+            "bluetoothVibes",
+            "bluetoothIcon"
+        ],
+        "projectType": "native",
+        "resources": {
+            "media": []
+        },
+        "sdkVersion": "3",
+        "targetPlatforms": [
+            "aplite",
+            "basalt",
+            "chalk"
+        ],
+        "uuid": "9104d091-de44-49b3-a279-95c5fdc44696",
+        "watchapp": {
+            "watchface": true
+        }
+    },
+    "version": "1.1.0"
+}

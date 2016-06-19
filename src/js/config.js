@@ -16,7 +16,7 @@ module.exports = [
       {
         "type": "select",
         "label": "Color Mode",
-        "appKey": "colorSetting",
+        "messageKey": "colorSetting",
         "defaultValue": "dark",
         "options": 
         [
@@ -49,16 +49,16 @@ module.exports = [
       {
         "type": "color",
         "label": "Background Color",
-        "appKey": "backgroundColor",
-        "defaultValue": "FFFFFF",
+        "messageKey": "backgroundColor",
+        "defaultValue": "0000FF",
         "allowGray": true,
         "sunlight": false
       },
       {
         "type": "color",
         "label": "Foreground Color",
-        "appKey": "foregroundColor",
-        "defaultValue": "0000FF",
+        "messageKey": "foregroundColor",
+        "defaultValue": "FFFFFF",
         "allowGray": true,
         "sunlight": false
       },
@@ -79,7 +79,7 @@ module.exports = [
       {
         "type": "select",
         "label": "Top Line",
-        "appKey": "topLineSetting",
+        "messageKey": "topLineSetting",
         "defaultValue": "weekdayDate",
         "options": [
           {
@@ -131,7 +131,7 @@ module.exports = [
       {
         "type": "select",
         "label": "Bottom Line",
-        "appKey": "bottomLineSetting",
+        "messageKey": "bottomLineSetting",
         "defaultValue": "steps",
         "options": [
           {
@@ -191,7 +191,7 @@ module.exports = [
       },
       {
         "type": "select",
-        "appKey": "centerLineSetting",
+        "messageKey": "centerLineSetting",
         "defaultValue": "battery",
         "options": [
           {
@@ -220,7 +220,13 @@ module.exports = [
       {
         "type": "toggle",
         "label": "Vibrate on bluetooth disconnect",
-        "appKey": "bluetoothVibes",
+        "messageKey": "bluetoothVibes",
+        "defaultValue": true
+      },
+      {
+        "type": "toggle",
+        "label": "Show icon on bluetooth disconnect",
+        "messageKey": "bluetoothIcon",
         "defaultValue": true
       }
     ]

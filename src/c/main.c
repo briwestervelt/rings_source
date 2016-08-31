@@ -368,7 +368,7 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context){
     else if(!strcmp(buffer, "light"))
        color_setting = LIGHT;
     else if(!strcmp(buffer, "hot"))
-       color_setting = DARK;
+       color_setting = HOT;
     else if(!strcmp(buffer, "cold"))
        color_setting = COLD;
        

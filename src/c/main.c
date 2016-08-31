@@ -225,7 +225,7 @@ static void bt_icon_update_proc(Layer *layer, GContext *ctx){
   it will draw an icon on disconnect
   */
   if((!bt_connected) && (bluetooth_icon_bool)){
-    GRect bounds = layer_get_bounds(layer);
+    GRect bounds = layer_get_unobstructed_bounds(layer);
     GPoint center = GPoint(bounds.size.w/2, bounds.size.h/2);
     
     //background circle
@@ -292,7 +292,7 @@ static void ring_update_proc(Layer *layer, GContext *ctx){
   /*
   This update proc draws the rings which show the time
   */
-  GRect outer_bounds = layer_get_bounds(layer);
+  GRect outer_bounds = layer_get_unobstructed_bounds(layer);
   GRect inner_bounds = grect_inset(outer_bounds, GEdgeInsets(outer_bounds.size.w/6));
   
   time_t now = time(NULL);
@@ -524,6 +524,29 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context){
   }
 }
 
+static void unobstructed_will_change(GRect final_unobstructed_screen_area, void *context){
+  Layer *window_layer = window_get_root_layer(main_window);
+  GRect full_bounds = layer_get_bounds(window_layer);
+  
+  if(!grect_equal(&full_bounds, &final_unobstructed_screen_area)){ //screen is about to be obstructed, hide text for now
+    layer_set_hidden(text_layer_get_layer(line_one_layer), true);
+    layer_set_hidden(text_layer_get_layer(line_two_layer), true);
+    layer_set_hidden(battery_layer, true);
+  }
+}
+
+static void unobstructed_did_change(void *context){
+  Layer *window_layer = window_get_root_layer(main_window);
+  GRect full_bounds = layer_get_bounds(window_layer);
+  GRect unobstructed_bounds = layer_get_unobstructed_bounds(window_layer);
+  
+  if(grect_equal(&full_bounds, &unobstructed_bounds)){ //screen is no longer obstructed, redraw everything
+    layer_set_hidden(text_layer_get_layer(line_one_layer), false);
+    layer_set_hidden(text_layer_get_layer(line_two_layer), false);
+    layer_set_hidden(battery_layer, false);
+  }
+}
+
 static void window_load(Window *window){
   
   //Loading all settings from persistant storage
@@ -599,6 +622,13 @@ static void window_load(Window *window){
   bt_icon_layer = layer_create(bounds);
   layer_set_update_proc(bt_icon_layer, bt_icon_update_proc);
   layer_add_child(window_layer, bt_icon_layer);
+  
+  //update for 4.0 unobstructed API
+  UnobstructedAreaHandlers unobstructed_handlers = {
+    .will_change = unobstructed_will_change,
+    .did_change = unobstructed_did_change
+  };
+  unobstructed_area_service_subscribe(unobstructed_handlers, NULL);
   
   //these callbacks are run so they are accurate from load time
   bluetooth_callback(connection_service_peek_pebble_app_connection());
